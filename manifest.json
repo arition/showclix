@@ -17,7 +17,8 @@
     "manifest_version": 2,
     "name": "Showclix",
     "permissions": [
-        "https://www.showclix.com/",
+        "*://*.showclix.com/",
+        "*://showclix.com/",
         "cookies"
     ],
     "version": "1.0"
