@@ -6,10 +6,9 @@
     },
     "content_scripts": [{
         "matches": [
-           "https://www.showclix.com/*"
+            "https://www.showclix.com/*"
         ],
         "js": [
-            "jquery-3.3.1.min.js",
             "inject.js"
         ]
     }],
@@ -18,7 +17,8 @@
     "manifest_version": 2,
     "name": "Showclix",
     "permissions": [
-        "https://www.showclix.com/",
+        "*://*.showclix.com/",
+        "*://showclix.com/",
         "cookies"
     ],
     "version": "1.0"
