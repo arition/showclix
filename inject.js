@@ -10,3 +10,10 @@ if (document.querySelector("body").innerHTML.includes("You are unable to access 
         location.reload();
     });
 }
+if (document.querySelector("#submit_pyos_request_2") != null) {
+    if (document.querySelector("#pyos_request") != null) {
+        document.querySelector("#pyos_request").remove();
+    }
+    document.querySelector("#ticket-form").insertAdjacentHTML('beforeend', '<input type="hidden" name="pyos_request" id="pyos_request" value="1" />');
+    document.querySelector("#ticket-form").submit();
+}
