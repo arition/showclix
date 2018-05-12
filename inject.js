@@ -1,3 +1,23 @@
+var uuid2row = {};
+var uuid2column = {};
+function parseSeats() {
+  var row2seats = cat2row2seats['ORCHESTRA'];
+  for (var row in row2seats) {
+    var seats = row2seats[row];
+    for (var i = 0; i < seats.length; i++) {
+      var seat = seats[i];
+      for (var column in seat) {
+        var uuid = seat[column];
+        uuid2row[uuid] = row;
+        uuid2column[uuid] = column;
+      }
+    }
+  }
+}
+
+parseSeats();
+//console.log(uuid2row);
+
 window.addEventListener("load", function() {
   var match = null;
 
@@ -116,3 +136,4 @@ function pollServer(url, user_token){
 function reloadPage(){
     window.location.reload(true)
 }
+

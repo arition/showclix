@@ -9,6 +9,8 @@
             "https://www.showclix.com/*"
         ],
         "js": [
+            "jquery-3.3.1.min.js",
+            "seats.js",
             "inject.js"
         ]
     }],
