@@ -1,0 +1,24 @@
+{
+    "background": {
+        "scripts": [
+            "background.js"
+        ]
+    },
+    "content_scripts": [{
+        "matches": [
+            "https://www.showclix.com/event/*"
+        ],
+        "js": [
+            "inject.js"
+        ]
+    }],
+    "description": "showclix",
+    "homepage_url": "https://www.showclix.com",
+    "manifest_version": 2,
+    "name": "Showclix",
+    "permissions": [
+        "https://www.showclix.com/",
+        "cookies"
+    ],
+    "version": "1.0"
+}
