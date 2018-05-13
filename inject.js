@@ -1,6 +1,6 @@
 var MAX_NUM_ROWS = 100;
 var MAX_NUM_SEATS_PER_ROW = 1000;
-var CATEGORY_WHITELIST = new Set(['ORCHESTRA']);
+var CATEGORY_WHITELIST = new Set(['ORCHESTRA', 'LOGE']);
 
 var seatsio_public_key = null;
 var token = null;
@@ -32,7 +32,6 @@ function onMessage(data, sender, sendResponse) {
 
 chrome.runtime.onMessage.addListener(onMessage);
 
-
 function getSeatAvailability() {
     var OBJECT_STATUSES_URL = "https://api.seats.io/system/public/" + seatsio_public_key + "/events/object-statuses?event_key=" + event_id;
     return fetch(OBJECT_STATUSES_URL, {
@@ -51,22 +50,31 @@ var uuid2row = {};
 var uuid2seat = {};
 var uuid2category = {};
 
+function letterToNum(letter) {
+    var num = letter.charCodeAt(0);
+    if (65 <= num && num <= 72) { // A-H
+        num = num - 65;
+    } else if (74 <= num && num <= 79) { // J-N
+        num = num - 66;
+    } else if (80 <= num && num <= 90) { // P-Z
+        num = num - 67;
+    } else {
+        num = -1;
+    }
+    return num;
+}
+
 // Returns -1 if unable to parse.
 function rowToNum(category, row) {
     if (category == 'ORCHESTRA') { // A-H,J-N,P-Z,AA-HH,JJ-NN,PP-ZZ
-        var num = row.charCodeAt(0);
-        if (65 <= num && num <= 72) { // A-H
-            num = num - 65;
-        } else if (74 <= num && num <= 79) { // J-N
-            num = num - 66;
-        } else if (80 <= num && num <= 90) { // P-Z
-            num = num - 67;
-        }
+        var num = letterToNum(row.charAt(0));
         if (row.length == 1) {
             return num;
-        } else if (row.length == 2) {
+        } else if (row.length == 2 && num >= 0) {
             return num - 2 + 26;
         }
+    } else if (category == 'LOGE') { // LOGE A-LOGE H,LOGE J-LOGE N,LOGE P-LOGE Z. Unable to parse row label 'T', I cannot find where it is.
+        return letterToNum(row.charAt(5));
     }
     return -1;
 }
