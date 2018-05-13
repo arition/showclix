@@ -1,7 +1,8 @@
-// TODO: generate url based on page info
-var CHART_AND_RENDERING_INFO_URL = "https://api.seats.io/system/public/6ee8c1fa-4bac-4ed0-89aa-26b6228f06fa/chart-and-rendering-info?event_key=4725977";
-var OBJECT_STATUSES_URL = "https://api.seats.io/system/public/6ee8c1fa-4bac-4ed0-89aa-26b6228f06fa/events/object-statuses?event_key=4725977";
 var MAX_NUM_SEATS_PER_ROW = 1000;
+
+var seatsio_public_key = null;
+var token = null;
+var event_id = null;
 
 // An example to access seat:
 //   var seat = seatInfo['ADA LOGE']['LOGE U'][101];
@@ -12,52 +13,50 @@ var seatInfo = {};
 // uuid => Availability
 var seatAvailability = {};
 
-$.ajaxSetup({
-    async: false
-});
-
 function getSeatAvailability() {
-    $.ajax({
-        type: "GET",
-        url: OBJECT_STATUSES_URL,
-        success: function (data) {
-            for (var i = 0; i < data.length; i++) {
-                var seat = data[i];
-                seatAvailability[seat.objectLabelOrUuid] = seat.status;
-            }
+    var OBJECT_STATUSES_URL = "https://api.seats.io/system/public/" + seatsio_public_key + "/events/object-statuses?event_key=" + event_id;
+    return fetch(OBJECT_STATUSES_URL, {
+        credentials: 'include'
+    }).then(function (response) {
+        return response.json();
+    }).then(function (data) {
+        for (var i = 0; i < data.length; i++) {
+            var seat = data[i];
+            seatAvailability[seat.objectLabelOrUuid] = seat.status;
         }
-    });
+    })
 }
 
 function getSeatInfo() {
-    $.ajax({
-        type: "GET",
-        url: CHART_AND_RENDERING_INFO_URL,
-        success: function (data) {
-            var rows = data.chart.subChart.rows;
-            for (var i = 0; i < rows.length; i++) {
-                var row = rows[i];
-                var rowLabel = row.label;
-                var seats = row.seats;
-                for (var j = 0; j < seats.length; j++) {
-                    var seat = seats[j];
-                    if (!seatInfo[seat.categoryLabel]) {
-                        seatInfo[seat.categoryLabel] = {};
-                    }
-                    if (!seatInfo[seat.categoryLabel][rowLabel]) {
-                        seatInfo[seat.categoryLabel][rowLabel] = new Array(MAX_NUM_SEATS_PER_ROW);
-                    }
-                    seatInfo[seat.categoryLabel][rowLabel][parseInt(seat.label)] = {
-                        uuid: seat.uuid,
-                        x: seat.x,
-                        y: seat.y,
-                        availability: seatAvailability[seat.uuid]
-                    };
+    var CHART_AND_RENDERING_INFO_URL = "https://api.seats.io/system/public/" + seatsio_public_key + "/chart-and-rendering-info?event_key=" + event_id;
+    return fetch(CHART_AND_RENDERING_INFO_URL, {
+        credentials: 'include'
+    }).then(function (response) {
+        return response.json();
+    }).then(function (data) {
+        var rows = data.chart.subChart.rows;
+        for (var i = 0; i < rows.length; i++) {
+            var row = rows[i];
+            var rowLabel = row.label;
+            var seats = row.seats;
+            for (var j = 0; j < seats.length; j++) {
+                var seat = seats[j];
+                if (!seatInfo[seat.categoryLabel]) {
+                    seatInfo[seat.categoryLabel] = {};
                 }
+                if (!seatInfo[seat.categoryLabel][rowLabel]) {
+                    seatInfo[seat.categoryLabel][rowLabel] = new Array(MAX_NUM_SEATS_PER_ROW);
+                }
+                seatInfo[seat.categoryLabel][rowLabel][parseInt(seat.label)] = {
+                    uuid: seat.uuid,
+                    x: seat.x,
+                    y: seat.y,
+                    availability: seatAvailability[seat.uuid]
+                };
             }
-            console.log(seatInfo);
         }
-    });
+        console.log(seatInfo);
+    })
 }
 
 var uuid2row = {};
@@ -100,8 +99,8 @@ window.addEventListener("load", function () {
     var pyos_re = new RegExp('^/event/[^/]+/pyos$');
     match = pyos_re.exec(window.location.pathname);
     if (match) {
-        getSeatAvailability();
-        getSeatInfo();
+        getBasicVars();
+        getSeatAvailability().then(getSeatInfo());
         //reserveSeats(["uuid43073", "uuid43074"]);
 
         var iframe_interval = window.setInterval(function () {
@@ -202,10 +201,7 @@ function reloadPage() {
     window.location.reload(true)
 }
 
-function reserveSeats(seatsUuidArray) {
-    var seatsio_public_key = null;
-    var token = null;
-    var event_id = null;
+function getBasicVars() {
     var re_seatsio_public_key = new RegExp('seatsio_public_key *: *\'(.*?)\'');
     var re_token = new RegExp('var token *= *\'(.*?)\';');
     var re_event_id = new RegExp('var event_id *= *(.*?);');
@@ -226,6 +222,9 @@ function reserveSeats(seatsUuidArray) {
             break;
         }
     }
+}
+
+function reserveSeats(seatsUuidArray) {
     var hold_tokens_url = "https://api.seats.io/system/public/" + seatsio_public_key + "/hold-tokens";
     var ticket_url = "https://www.showclix.com/areservation/" + token + "/tickets?captured_via=online";
     var select_seat_url = "https://api.seats.io/system/public/" + seatsio_public_key + "/seasons/actions/hold-objects";
