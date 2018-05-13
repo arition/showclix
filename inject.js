@@ -17,7 +17,6 @@ function onMessage(data, sender, sendResponse) {
     console.log(data);
     if (data.msg === 'selectSeats') {
         selectSeats();
-
         response = {
             msg: "SeatsSelected",
             url: document.location.toString(),
@@ -46,6 +45,10 @@ function getSeatAvailability() {
     })
 }
 
+var uuid2row = {};
+var uuid2seat = {};
+var uuid2category = {};
+
 function getSeatInfo() {
     var CHART_AND_RENDERING_INFO_URL = "https://api.seats.io/system/public/" + seatsio_public_key + "/chart-and-rendering-info?event_key=" + event_id;
     return fetch(CHART_AND_RENDERING_INFO_URL, {
@@ -72,14 +75,14 @@ function getSeatInfo() {
                     y: seat.y,
                     availability: seatAvailability[seat.uuid]
                 };
+                uuid2category[seat.uuid] = seat.categoryLabel;
+                uuid2row[seat.uuid] = rowLabel;
+                uuid2seat[seat.uuid] = seat.label;
             }
         }
-        console.log(seatInfo);
+        //console.log(seatInfo);
     })
 }
-
-var uuid2row = {};
-var uuid2column = {};
 
 function parseSeats() {
     var row2seats = cat2row2seats['ORCHESTRA'];
@@ -90,13 +93,13 @@ function parseSeats() {
             for (var column in seat) {
                 var uuid = seat[column];
                 uuid2row[uuid] = row;
-                uuid2column[uuid] = column;
+                uuid2seat[uuid] = column;
             }
         }
     }
 }
 
-parseSeats();
+//parseSeats();
 //console.log(uuid2row);
 
 window.addEventListener("load", function () {
@@ -120,19 +123,22 @@ window.addEventListener("load", function () {
     if (match) {
         getBasicVars();
         getSeatInfo().then(selectSeats(true));
-        //reserveSeats(["uuid43073", "uuid43074"]);
 
+        var iframe_load_count = 0;
         var iframe_interval = window.setInterval(function () {
+            iframe_load_count++;
             var iframe = document.querySelector("#seatsio-seating-chart > iframe");
             if (iframe) {
                 // TODO: We need to insert code into the iframe
-                // Maybe we can write a separate content script
                 //var innerDoc = iframe.contentDocument || iframe.contentWindow.document;
                 iframe.addEventListener("load", function () {
-                    //var canvas = innerDoc.querySelector("#chartContainer > canvas");
-                    //console.log(canvas);
+                    // XXX: Only reserve after the iframe has been loaded
+                    //reserveSeats(["uuid43073", "uuid43074"]);
                 });
                 window.clearInterval(iframe_interval);
+            }
+            if (iframe_load_count >= 5) {
+                reloadPage();
             }
         }, 1000);
     }
@@ -303,8 +309,28 @@ function reserveSeats(seatsUuidArray) {
         }))
     }).then(function (results) {
         console.log("reserve success.");
-        return results.filter(result => result != undefined || result != null)
-    });
+        $("#js-continue").show();
+        var iframe = document.querySelector("#seatsio-seating-chart > iframe");
+        // Uncomment to reload iframe
+        iframe.src = iframe.src;
+
+        results = results.filter(result => result != undefined || result != null);
+        $("#order_details_table > tbody").innerHTML = "";
+        results.forEach(function(uuid) {
+            var tid = "test"; // TODO: Get ticket id
+            var category = uuid2category[uuid];
+            var row = uuid2row[uuid];
+            var seat = uuid2seat[uuid];
+            var rowHTML = '<tr id = "ticket-' + tid + '"><td class="left">' + category + '</td>';
+            rowHTML += '<td>' + row + '</td><td>' + seat + '</td><td class="left" style="width:150px"></td>';
+            rowHTML += '<td><span class="monetary">$60.00</span></td><td class="monetary">$3.00</td>';
+            rowHTML += '<td><a href="#" class="remove-btn">Remove Reservation</a></td></tr>'
+            $("#order_details_table > tbody").append(rowHTML);
+        });
+        $("#seat_selected > header > div > span")[0].innerText = results.length;
+        
+        return results;
+    })
 }
 
 function selectSeats(first_time = null) {
