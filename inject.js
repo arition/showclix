@@ -14,19 +14,19 @@ var seatInfo = {};
 var seatAvailability = {};
 
 function onMessage(data, sender, sendResponse) {
-  console.log(data);
-  if (data.msg === 'selectSeats') {
-    selectSeats();
+    console.log(data);
+    if (data.msg === 'selectSeats') {
+        selectSeats();
 
-    response = {
-      msg: "SeatsSelected",
-      url: document.location.toString(),
-      title: document.title,
-    };
-    sendResponse(response);
-  } else {
-    console.error('Unknown message received from background: ' + data.msg);
-  }
+        response = {
+            msg: "SeatsSelected",
+            url: document.location.toString(),
+            title: document.title,
+        };
+        sendResponse(response);
+    } else {
+        console.error('Unknown message received from background: ' + data.msg);
+    }
 }
 
 chrome.runtime.onMessage.addListener(onMessage);
@@ -247,7 +247,7 @@ function reserveSeats(seatsUuidArray) {
     var hold_tokens_url = "https://api.seats.io/system/public/" + seatsio_public_key + "/hold-tokens";
     var ticket_url = "https://www.showclix.com/areservation/" + token + "/tickets?captured_via=online";
     var select_seat_url = "https://api.seats.io/system/public/" + seatsio_public_key + "/seasons/actions/hold-objects";
-    fetch(hold_tokens_url, {
+    return fetch(hold_tokens_url, {
         method: 'POST',
         credentials: 'include'
     }).then(function (response) {
@@ -295,19 +295,24 @@ function reserveSeats(seatsUuidArray) {
                     throw Error(response.statusText);
                 }
                 return response;*/
+            }).then(function () {
+                return seatsUuid;
             }).catch(function (error) {
                 console.error('Error: reserve seat ' + seatsUuid + ' failed, ', error);
             })
         }))
-    }).then(function () {
+    }).then(function (results) {
         console.log("reserve success.");
-    })
+        return results.filter(result => result != undefined || result != null)
+    });
 }
 
 function selectSeats(first_time = null) {
     getSeatAvailability().then(function () {
-      if (first_time == null) {
-          reserveSeats(["uuid43073", "uuid43074"]);
-      }
+        if (first_time == null) {
+            reserveSeats(["uuid43073", "uuid43074"]).then(function (results) {
+                console.log(results);
+            });
+        }
     });
 }
