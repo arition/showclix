@@ -417,6 +417,7 @@ function sortSeat(a,b) {
 
 function selectSeats(first_time = false, N=2) {
     getSeatAvailability().then(function () {
+        removeSelection(true);
         var selected_uuids = [];
         console.log(seatInfo);
         var row2seats = seatInfo["ORCHESTRA"];
@@ -484,4 +485,36 @@ function selectSeats(first_time = false, N=2) {
             reserveSeats(selected_uuids);
         }
     });
+}
+
+// XXX: This method is not reliable as it tries to click multiple buttons.
+// However, this can trigger a bug of showclix allowing us to select more than 4 seats.
+// In the checkout page, all the seats will be canceled if there are more than 4 seats that are selected!!!
+function removeSelection(all=true) {
+    // We need to click more than once to remove one reserved seat
+    var a = $("#order_details_table > tbody > tr > td:nth-child(7) > a");
+    if (a[0]) {
+        a[0].click();
+    }
+
+    if (all) {
+        $("#order_details_table > tbody > tr > td:nth-child(7) > a").each(function (index) {
+            console.log("Removing: ", index, $(this));
+            $(this).click();
+        });
+        $("#order_details_table > tbody > tr > td:nth-child(7) > a").each(function (index) {
+            console.log("Removing: ", index, $(this));
+            $(this).click();
+        });
+    }
+    else {
+        var a = $("#order_details_table > tbody > tr > td:nth-child(7) > a");
+        if (a[0]) {
+            a[0].click();
+            console.log("Removing: ", a);
+        }
+    }
+    var iframe = document.querySelector("#seatsio-seating-chart > iframe");
+    // Uncomment to reload iframe
+    iframe.src = iframe.src;
 }
