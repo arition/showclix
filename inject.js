@@ -15,12 +15,14 @@ var seatInfo = {};
 // uuid => Availability
 var seatAvailability = {};
 
+var NumberOfSeats = 2;
+
 function onMessage(data, sender, sendResponse) {
     console.log(data);
     if (data.msg === 'selectSeats') {
         // TODO: Remove some of the selected seats if we need to book more
         // XXX: DO NOT click CANCEL RESERVATION, we may lose position in the queue
-        selectSeats(false, 2);
+        selectSeats(false, NumberOfSeats);
         response = {
             msg: "SeatsSelected",
             url: document.location.toString(),
@@ -172,7 +174,6 @@ window.addEventListener("load", function () {
         getSeatInfo().then(function (data) {
             // XXX: We might need to call this after the iFrame has loaded
             //selectSeats(true, 1);
-            //selectSeats(false, 2);
         });
 
         var iframe_load_count = 0;
@@ -180,6 +181,8 @@ window.addEventListener("load", function () {
             iframe_load_count++;
             var iframe = document.querySelector("#seatsio-seating-chart > iframe");
             if (iframe) {
+                selectSeats(false, NumberOfSeats);
+
                 //var innerDoc = iframe.contentDocument || iframe.contentWindow.document;
                 iframe.addEventListener("load", function () {
                     // XXX: Only reserve after the iframe has been loaded
@@ -188,7 +191,7 @@ window.addEventListener("load", function () {
                 window.clearInterval(iframe_interval);
             }
             // Reload page after 5 seconds
-            else if (iframe_load_count >= 5) {
+            else if (iframe_load_count > 5) {
                 reloadPage();
             }
         }, 1000);
@@ -394,10 +397,20 @@ function reserveSeats(seatsUuidArray) {
     })
 }
 
-function sortNumber(a,b) {
-    a_f = Math.floor(a);
-    b_f = Math.floor(b);
-    if (a_f == b_f) {
+function sortRow(a,b) {
+    a = parseInt(a);
+    b = parseInt(b);
+    return a-b;
+}
+
+function sortColumnInSameRow(a,b) {
+    a = parseInt(a);
+    b = parseInt(b);
+    a_f = Math.floor(a/100);
+    b_f = Math.floor(b/100);
+
+    result = Math.abs(a_f - 3) - Math.abs(b_f - 3);
+    if (result == 0) {
         if (a_f == 3) {
             // TODO: Slect the central or isle seats?
             // How do you know the central seat without knowing the row?
@@ -408,84 +421,179 @@ function sortNumber(a,b) {
         }
     }
     else {
-        return Math.abs(a_f - 3) - Math.abs(b_f - 3);
+        // XXX: 2XX == 4XX !!!
+        return result;
     }
 }
 
+function sortColumnInSameRowAndBlock(a,b) {
+    a = parseInt(a);
+    b = parseInt(b);
+    return a - b;
+}
+
+function sortBlock(a,b) {
+    a = parseInt(a);
+    b = parseInt(b);
+    a_f = Math.floor(a/100);
+    b_f = Math.floor(b/100);
+
+    // XXX: 2XX == 4XX !!!
+    result = Math.abs(a_f - 3) - Math.abs(b_f - 3);
+    return result;
+
+    if (result == 0) {
+        return a_f - b_f;
+    }
+    return result;
+}
+
 function sortSeat(a,b) {
+    sort_by_block = sortBlock(parseInt(a.seat), parseInt(b.seat));
+    if (sort_by_block == 0) {
+        sort_by_row = sortRow(parseInt(a.row), parseInt(b.row));
+        if (sort_by_row == 0) {
+            return sortColumnInSameRowAndBlock(parseInt(a.seat), parseInt(b.seat));
+        }
+        return sort_by_row;
+    }
+    return sort_by_block;
 }
 
 function selectSeats(first_time = false, N=2) {
     getSeatAvailability().then(function () {
         removeSelection(true);
-        var selected_uuids = [];
         console.log(seatInfo);
-        var row2seats = seatInfo["ORCHESTRA"];
-        var sorted_rows = [];
-        for (var row in row2seats) {
-            sorted_rows.push(parseInt(row));
-        }
-        sorted_rows.sort((a, b) => a - b);
-        console.log(sorted_rows);
-        for (var i = 0; i < sorted_rows.length; i++) {
-            if (selected_uuids.length > 0) {
-                break;
-            }
-            var row = sorted_rows[i];
-            var seats = row2seats[row];
-            var sorted_seats = [];
-            for (var seat in seats) {
-                sorted_seats.push(seat);
-            }
-            // TODO: Sort by block, e.g., 3XX > 2XX = 4XX > 1XX = 5XX
-            // Sort by distance to central stage, e.g.,
-            // Block 1XX: 101 > 128, 201 > 208, 301 > 308, 401 > 408
-            // Block 3XX: 301 = 328 > 302 = 327 > ...
-            // XXX: Some rows may have less than 28 seats!!!
 
-            sorted_seats.sort(sortNumber);
-            //console.log(sorted_seats);
-            for (var j = 0; j < sorted_seats.length-N+1; j++) {
-                var seat = sorted_seats[j];
+        //var selected_uuids = selectSeatsStrategy1(N);
 
-                // Comment if you want to select from non central blocks
-                //if (seat < 300 || seat >= 400) {
-                    //continue;
-                var uuid = seats[seat].uuid;
-                var seat_status = seatAvailability[uuid];
-                //console.log(row, seat, uuid, seat_status);
-                if (seat_status != "free") {
-                    continue;
-                }
+        var selected_uuids = selectSeatsStrategy2(N);
 
-                var flag = true;
-                for (var k = 1; k < N; k++) {
-                    var s = sorted_seats[j+k];
-                    var uuid_ = seats[s].uuid;
-                    var seat_status_ = seatAvailability[uuid_];
-                    console.log(row, s, uuid_, seat_status_);
-                    if ((seat_status_ != "free") || (Math.floor(seat/100) != Math.floor(s/100))) {
-                        flag = false;
-                        break;
-                    }
-                }
-                if (flag == true) {
-                    for (var k = 0; k < N; k++) {
-                        var s = sorted_seats[j+k];
-                        var uuid_ = seats[s].uuid;
-                        selected_uuids.push(uuid_);
-                    }
-                    break;
-                }
-            }
-        }
         console.log("Selected: " + selected_uuids);
+
         if (first_time == false) {
             //reserveSeats(["uuid43073", "uuid43074"]);
             reserveSeats(selected_uuids);
         }
     });
 }
+
+function selectSeatsStrategy1(N) {
+    var selected_uuids = [];
+    var row2seats = seatInfo["ORCHESTRA"];
+    var sorted_rows = [];
+    for (var row in row2seats) {
+        sorted_rows.push(parseInt(row));
+    }
+    sorted_rows.sort((a, b) => a - b);
+    console.log(sorted_rows);
+    for (var i = 0; i < sorted_rows.length; i++) {
+        if (selected_uuids.length > 0) {
+            break;
+        }
+        var row = sorted_rows[i];
+        var seats = row2seats[row];
+        var sorted_seats = [];
+        for (var seat in seats) {
+            sorted_seats.push(seat);
+        }
+        // TODO: Sort by block, e.g., 3XX > 2XX = 4XX > 1XX = 5XX
+        // Sort by distance to central stage, e.g.,
+        // Block 1XX: 101 > 128, 201 > 208, 301 > 308, 401 > 408
+        // Block 3XX: 301 = 328 > 302 = 327 > ...
+        // XXX: Some rows may have less than 28 seats!!!
+
+        sorted_seats.sort(sortColumnInSameRow);
+        //console.log(sorted_seats);
+        for (var j = 0; j < sorted_seats.length-N+1; j++) {
+            var seat = sorted_seats[j]; // The column number
+
+            // Comment if you want to select from non central blocks
+            //if (seat < 300 || seat >= 400) {
+                //continue;
+            var uuid = seats[seat].uuid;
+            var seat_status = seatAvailability[uuid];
+            //console.log(row, seat, uuid, seat_status);
+            if (seat_status != "free") {
+                continue;
+            }
+
+            var flag = true;
+            for (var k = 1; k < N; k++) {
+                var seat_ = sorted_seats[j+k]; // The column number
+                var uuid_ = seats[seat_].uuid;
+                var seat_status_ = seatAvailability[uuid_];
+                console.log(row, s, uuid_, seat_status_);
+                if ((seat_status_ != "free") || (Math.floor(seat/100) != Math.floor(seat_/100))) {
+                    flag = false;
+                    break;
+                }
+            }
+            if (flag == true) {
+                for (var k = 0; k < N; k++) {
+                    var s = sorted_seats[j+k];
+                    var uuid_ = seats[s].uuid;
+                    selected_uuids.push(uuid_);
+                }
+                break;
+            }
+        }
+    }
+    return selected_uuids;
+}
+
+function selectSeatsStrategy2(N) {
+    var selected_uuids = [];
+    var row2seats = seatInfo["ORCHESTRA"];
+    var all_seats = [];
+    for (var row in row2seats) {
+        var seats = row2seats[row];
+        for (var seat in seats) {
+            var s = {
+                row: row,
+                seat: seat,
+                uuid: seats[seat].uuid,
+                status: seatAvailability[seats[seat].uuid]
+            };
+            all_seats.push(s);
+        }
+    }
+    all_seats.sort(sortSeat);
+
+    for (var j = 0; j < all_seats.length-N+1; j++) {
+        var s = all_seats[j]; // The "seat" object
+        var uuid = s.uuid;
+        var seat_status = seatAvailability[uuid];
+        //console.log(row, seat, uuid, seat_status);
+        if (seat_status != "free") {
+            continue;
+        }
+        console.log("Start:", s, seat_status, "Seats:", all_seats.slice(Math.max(0, j-5), Math.min(all_seats.length, j+5)));
+
+        var flag = true;
+        for (var k = 1; k < N; k++) {
+            var s_ = all_seats[j+k]; // The "seat" object
+            var uuid_ = s_.uuid;
+            var seat_status_ = seatAvailability[uuid_];
+            console.log(s_, seat_status_);
+            if ((seat_status_ != "free") || (Math.floor(s.seat/100) != Math.floor(s_.seat/100)) || s.row != s_.row) {
+                flag = false;
+                break;
+            }
+        }
+        if (flag == true) {
+            for (var k = 0; k < N; k++) {
+                var s = all_seats[j+k];
+                var uuid_ = s.uuid;
+                selected_uuids.push(uuid_);
+            }
+            break;
+        }
+    }
+    return selected_uuids;
+}
+
+
 
 // XXX: This method is not reliable as it tries to click multiple buttons.
 // However, this can trigger a bug of showclix allowing us to select more than 4 seats.
