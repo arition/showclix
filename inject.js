@@ -429,6 +429,8 @@ function sortColumnInSameRow(a,b) {
 function sortColumnInSameRowAndBlock(a,b) {
     a = parseInt(a);
     b = parseInt(b);
+    // TODO: Slect the central or isle seats?
+    // How do you know the central seat without knowing the row?
     return a - b;
 }
 
@@ -552,8 +554,7 @@ function selectSeatsStrategy2(N) {
             var s = {
                 row: row,
                 seat: seat,
-                uuid: seats[seat].uuid,
-                status: seatAvailability[seats[seat].uuid]
+                uuid: seats[seat].uuid
             };
             all_seats.push(s);
         }
