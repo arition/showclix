@@ -1,13 +1,15 @@
+var MAX_NUM_ROWS = 100;
 var MAX_NUM_SEATS_PER_ROW = 1000;
+var CATEGORY_WHITELIST = new Set(['ORCHESTRA']);
 
 var seatsio_public_key = null;
 var token = null;
 var event_id = null;
 
 // An example to access seat:
-//   var seat = seatInfo['ADA LOGE']['LOGE U'][101];
+//   var seat = seatInfo['ADA LOGE'][1][101];
 // An example of seat object:
-//   {uuid: "uuid41775", x: 419.74, y: 536.64}
+//   {uuid: "uuid30027", rowLabel: "B", x: 2120.26, y: 2018.62, availability: "held"}
 var seatInfo = {};
 
 // uuid => Availability
@@ -49,6 +51,26 @@ var uuid2row = {};
 var uuid2seat = {};
 var uuid2category = {};
 
+// Returns -1 if unable to parse.
+function rowToNum(category, row) {
+    if (category == 'ORCHESTRA') { // A-H,J-N,P-Z,AA-HH,JJ-NN,PP-ZZ
+        var num = row.charCodeAt(0);
+        if (65 <= num && num <= 72) { // A-H
+            num = num - 65;
+        } else if (74 <= num && num <= 79) { // J-N
+            num = num - 66;
+        } else if (80 <= num && num <= 90) { // P-Z
+            num = num - 67;
+        }
+        if (row.length == 1) {
+            return num;
+        } else if (row.length == 2) {
+            return num - 2 + 26;
+        }
+    }
+    return -1;
+}
+
 function getSeatInfo() {
     var CHART_AND_RENDERING_INFO_URL = "https://api.seats.io/system/public/" + seatsio_public_key + "/chart-and-rendering-info?event_key=" + event_id;
     return fetch(CHART_AND_RENDERING_INFO_URL, {
@@ -59,24 +81,37 @@ function getSeatInfo() {
         var rows = data.chart.subChart.rows;
         for (var i = 0; i < rows.length; i++) {
             var row = rows[i];
-            var rowLabel = row.label;
             var seats = row.seats;
+            var category = null;
+            if (seats.length > 0) {
+                category = seats[0].categoryLabel;
+            }
+            if (!CATEGORY_WHITELIST.has(category)) {
+                continue;
+
+            }
+            var rowNum = rowToNum(category, row.label);
+            if (rowNum < 0) {
+                console.log('Unable to parse row number (' + category + ',' + row.label + ')');
+                continue;
+            }
             for (var j = 0; j < seats.length; j++) {
                 var seat = seats[j];
-                if (!seatInfo[seat.categoryLabel]) {
-                    seatInfo[seat.categoryLabel] = {};
+                if (!seatInfo[category]) {
+                    seatInfo[category] = new Array(MAX_NUM_ROWS);
                 }
-                if (!seatInfo[seat.categoryLabel][rowLabel]) {
-                    seatInfo[seat.categoryLabel][rowLabel] = new Array(MAX_NUM_SEATS_PER_ROW);
+                if (!seatInfo[category][rowNum]) {
+                    seatInfo[category][rowNum] = new Array(MAX_NUM_SEATS_PER_ROW);
                 }
-                seatInfo[seat.categoryLabel][rowLabel][parseInt(seat.label)] = {
+                seatInfo[category][rowNum][parseInt(seat.label)] = {
                     uuid: seat.uuid,
+                    rowLabel: row.label,
                     x: seat.x,
                     y: seat.y,
                     availability: seatAvailability[seat.uuid]
                 };
-                uuid2category[seat.uuid] = seat.categoryLabel;
-                uuid2row[seat.uuid] = rowLabel;
+                uuid2category[seat.uuid] = category;
+                uuid2row[seat.uuid] = row.label;
                 uuid2seat[seat.uuid] = seat.label;
             }
         }
