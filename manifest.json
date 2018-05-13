@@ -1,4 +1,7 @@
 {
+    "browser_action": {
+        "default_icon": "icon.png"
+    },
     "background": {
         "scripts": [
             "background.js"
@@ -14,11 +17,19 @@
             "inject.js"
         ]
     }],
+    "commands": {
+      "_execute_browser_action": {
+        "suggested_key": {
+          "default": "Alt+Shift+O"
+        }
+      }
+    },
     "description": "showclix",
     "homepage_url": "https://www.showclix.com",
     "manifest_version": 2,
     "name": "Showclix",
     "permissions": [
+        "activeTab",
         "*://*.showclix.com/",
         "*://showclix.com/",
         "cookies"

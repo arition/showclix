@@ -13,6 +13,25 @@ var seatInfo = {};
 // uuid => Availability
 var seatAvailability = {};
 
+function onMessage(data, sender, sendResponse) {
+  console.log(data);
+  if (data.msg === 'selectSeats') {
+    selectSeats();
+
+    response = {
+      msg: "SeatsSelected",
+      url: document.location.toString(),
+      title: document.title,
+    };
+    sendResponse(response);
+  } else {
+    console.error('Unknown message received from background: ' + data.msg);
+  }
+}
+
+chrome.runtime.onMessage.addListener(onMessage);
+
+
 function getSeatAvailability() {
     var OBJECT_STATUSES_URL = "https://api.seats.io/system/public/" + seatsio_public_key + "/events/object-statuses?event_key=" + event_id;
     return fetch(OBJECT_STATUSES_URL, {
@@ -100,7 +119,7 @@ window.addEventListener("load", function () {
     match = pyos_re.exec(window.location.pathname);
     if (match) {
         getBasicVars();
-        getSeatAvailability().then(getSeatInfo());
+        getSeatInfo().then(selectSeats(true));
         //reserveSeats(["uuid43073", "uuid43074"]);
 
         var iframe_interval = window.setInterval(function () {
@@ -283,4 +302,12 @@ function reserveSeats(seatsUuidArray) {
     }).then(function () {
         console.log("reserve success.");
     })
+}
+
+function selectSeats(first_time = null) {
+    getSeatAvailability().then(function () {
+      if (first_time == null) {
+          reserveSeats(["uuid43073", "uuid43074"]);
+      }
+    });
 }
