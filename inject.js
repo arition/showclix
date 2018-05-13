@@ -14,19 +14,18 @@ var seatInfo = {};
 var seatAvailability = {};
 
 function onMessage(data, sender, sendResponse) {
-  console.log(data);
-  if (data.msg === 'selectSeats') {
-    selectSeats();
-
-    response = {
-      msg: "SeatsSelected",
-      url: document.location.toString(),
-      title: document.title,
-    };
-    sendResponse(response);
-  } else {
-    console.error('Unknown message received from background: ' + data.msg);
-  }
+    console.log(data);
+    if (data.msg === 'selectSeats') {
+        selectSeats();
+        response = {
+            msg: "SeatsSelected",
+            url: document.location.toString(),
+            title: document.title,
+        };
+        sendResponse(response);
+    } else {
+        console.error('Unknown message received from background: ' + data.msg);
+    }
 }
 
 chrome.runtime.onMessage.addListener(onMessage);
@@ -301,13 +300,17 @@ function reserveSeats(seatsUuidArray) {
         }))
     }).then(function () {
         console.log("reserve success.");
+        $("#js-continue").show();
+        var iframe = document.querySelector("#seatsio-seating-chart > iframe");
+        // Uncomment to reload iframe
+        //iframe.src = iframe.src;
     })
 }
 
 function selectSeats(first_time = null) {
     getSeatAvailability().then(function () {
-      if (first_time == null) {
-          reserveSeats(["uuid43073", "uuid43074"]);
-      }
+        if (first_time == null) {
+            reserveSeats(["uuid43073", "uuid43074"]);
+        }
     });
 }
