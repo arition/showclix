@@ -1,3 +1,64 @@
+var CHART_AND_RENDERING_INFO_URL = "https://api.seats.io/system/public/6ee8c1fa-4bac-4ed0-89aa-26b6228f06fa/chart-and-rendering-info?event_key=4725977";
+var OBJECT_STATUSES_URL = "https://api.seats.io/system/public/6ee8c1fa-4bac-4ed0-89aa-26b6228f06fa/events/object-statuses?event_key=4725977";
+var MAX_NUM_SEATS_PER_ROW = 1000;
+
+// An example to access seat:
+//   var seat = seatInfo['ADA LOGE']['LOGE U'][101];
+// An example of seat object:
+//   {uuid: "uuid41775", x: 419.74, y: 536.64}
+var seatInfo = {};
+
+// uuid => Availability
+var seatAvailability = {};
+
+$.ajaxSetup({
+  async: false
+});
+
+function getSeatAvailability() {
+  $.ajax({
+    type: "GET",
+    url: OBJECT_STATUSES_URL,
+    success: function (data) {
+      for (var i = 0; i < data.length; i++) {
+        var seat = data[i];
+        seatAvailability[seat.objectLabelOrUuid] = seat.status;
+      }
+    }
+  });
+}
+
+function getSeatInfo() {
+  $.ajax({
+    type: "GET",
+    url: CHART_AND_RENDERING_INFO_URL,
+    success: function (data) {
+      var rows = data.chart.subChart.rows;
+      for (var i = 0; i < rows.length; i++) {
+        var row = rows[i];
+        var rowLabel = row.label;
+        var seats = row.seats;
+        for (var j = 0; j < seats.length; j++) {
+          var seat = seats[j];
+          if (!seatInfo[seat.categoryLabel]) {
+            seatInfo[seat.categoryLabel] = {};
+          }
+          if (!seatInfo[seat.categoryLabel][rowLabel]) {
+            seatInfo[seat.categoryLabel][rowLabel] = new Array(MAX_NUM_SEATS_PER_ROW);
+          }
+          seatInfo[seat.categoryLabel][rowLabel][parseInt(seat.label)] = {
+            uuid: seat.uuid,
+            x: seat.x,
+            y: seat.y,
+            availability: seatAvailability[seat.uuid]
+          };
+        }
+      }
+      console.log(seatInfo);
+    }
+  });
+}
+
 var uuid2row = {};
 var uuid2column = {};
 function parseSeats() {
@@ -42,6 +103,9 @@ window.addEventListener("load", function() {
     var post_data = {};
     var ticket_url = "https://www.showclix.com/areservation/a7b5dd1a900df0a1526106187554ef05647827f1/tickets?captured_via=online";
     var payload = {"tickets":[{"event_id":"4725977","event_seat_ids":["uuid13941"],"data":{"reserve_type":"Seat"}}],"seatsioReservationToken":"220ff018-b746-4c39-b33d-73112f97a732","category":"ORCHESTRA"}
+
+   getSeatAvailability();
+   getSeatInfo();
    
     var iframe_interval = window.setInterval(function () {
       var iframe = document.querySelector("#seatsio-seating-chart > iframe");
@@ -136,4 +200,3 @@ function pollServer(url, user_token){
 function reloadPage(){
     window.location.reload(true)
 }
-
