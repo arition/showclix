@@ -18,7 +18,9 @@ var seatAvailability = {};
 function onMessage(data, sender, sendResponse) {
     console.log(data);
     if (data.msg === 'selectSeats') {
-        selectSeats();
+        // TODO: Remove some of the selected seats if we need to book more
+        // XXX: DO NOT click CANCEL RESERVATION, we may lose position in the queue
+        selectSeats(false, 2);
         response = {
             msg: "SeatsSelected",
             url: document.location.toString(),
@@ -124,7 +126,9 @@ function getSeatInfo() {
             }
         }
         //console.log(seatInfo);
-    })
+        // XXX: We need to return something as a promise
+        return seatInfo;
+    });
 }
 
 function parseSeats() {
@@ -165,14 +169,17 @@ window.addEventListener("load", function () {
     match = pyos_re.exec(window.location.pathname);
     if (match) {
         getBasicVars();
-        getSeatInfo().then(selectSeats(true));
+        getSeatInfo().then(function (data) {
+            // XXX: We might need to call this after the iFrame has loaded
+            //selectSeats(true, 1);
+            //selectSeats(false, 2);
+        });
 
         var iframe_load_count = 0;
         var iframe_interval = window.setInterval(function () {
             iframe_load_count++;
             var iframe = document.querySelector("#seatsio-seating-chart > iframe");
             if (iframe) {
-                // TODO: We need to insert code into the iframe
                 //var innerDoc = iframe.contentDocument || iframe.contentWindow.document;
                 iframe.addEventListener("load", function () {
                     // XXX: Only reserve after the iframe has been loaded
@@ -180,7 +187,8 @@ window.addEventListener("load", function () {
                 });
                 window.clearInterval(iframe_interval);
             }
-            if (iframe_load_count >= 5) {
+            // Reload page after 5 seconds
+            else if (iframe_load_count >= 5) {
                 reloadPage();
             }
         }, 1000);
@@ -351,7 +359,7 @@ function reserveSeats(seatsUuidArray) {
             })
         }))
     }).then(function (results) {
-        console.log("reserve success.");
+        console.log("reserve success: ", results);
         $("#js-continue").show();
         var iframe = document.querySelector("#seatsio-seating-chart > iframe");
         // Uncomment to reload iframe
@@ -359,6 +367,7 @@ function reserveSeats(seatsUuidArray) {
 
         results = results.filter(result => result != undefined || result != null);
         $("#order_details_table > tbody").innerHTML = "";
+        var total = 0;
         results.forEach(function(uuid) {
             var tid = "test"; // TODO: Get ticket id
             var category = uuid2category[uuid];
@@ -366,22 +375,113 @@ function reserveSeats(seatsUuidArray) {
             var seat = uuid2seat[uuid];
             var rowHTML = '<tr id = "ticket-' + tid + '"><td class="left">' + category + '</td>';
             rowHTML += '<td>' + row + '</td><td>' + seat + '</td><td class="left" style="width:150px"></td>';
-            rowHTML += '<td><span class="monetary">$60.00</span></td><td class="monetary">$3.00</td>';
+            var price = 60.00;
+            var fee = 3.00;
+            if (category == "ORCHESTRA") {
+                price = 85.00;
+                fee = 4.13;
+            }
+            total += price;
+            total += fee;
+            rowHTML += '<td><span class="monetary">$' + price + '</span></td><td class="monetary">$' + fee + '</td>';
             rowHTML += '<td><a href="#" class="remove-btn">Remove Reservation</a></td></tr>'
             $("#order_details_table > tbody").append(rowHTML);
         });
         $("#seat_selected > header > div > span")[0].innerText = results.length;
-        
+        $("#seat_selected > footer > div > div > h2 > strong")[0].innerText = "$"+total;
+
         return results;
     })
 }
 
-function selectSeats(first_time = null) {
+function sortNumber(a,b) {
+    a_f = Math.floor(a);
+    b_f = Math.floor(b);
+    if (a_f == b_f) {
+        if (a_f == 3) {
+            // TODO: Slect the central or isle seats?
+            // How do you know the central seat without knowing the row?
+            return a - b;
+        }
+        else {
+            return a - b;
+        }
+    }
+    else {
+        return Math.abs(a_f - 3) - Math.abs(b_f - 3);
+    }
+}
+
+function sortSeat(a,b) {
+}
+
+function selectSeats(first_time = false, N=2) {
     getSeatAvailability().then(function () {
-        if (first_time == null) {
-            reserveSeats(["uuid43073", "uuid43074"]).then(function (results) {
-                console.log(results);
-            });
+        var selected_uuids = [];
+        console.log(seatInfo);
+        var row2seats = seatInfo["ORCHESTRA"];
+        var sorted_rows = [];
+        for (var row in row2seats) {
+            sorted_rows.push(parseInt(row));
+        }
+        sorted_rows.sort((a, b) => a - b);
+        console.log(sorted_rows);
+        for (var i = 0; i < sorted_rows.length; i++) {
+            if (selected_uuids.length > 0) {
+                break;
+            }
+            var row = sorted_rows[i];
+            var seats = row2seats[row];
+            var sorted_seats = [];
+            for (var seat in seats) {
+                sorted_seats.push(seat);
+            }
+            // TODO: Sort by block, e.g., 3XX > 2XX = 4XX > 1XX = 5XX
+            // Sort by distance to central stage, e.g.,
+            // Block 1XX: 101 > 128, 201 > 208, 301 > 308, 401 > 408
+            // Block 3XX: 301 = 328 > 302 = 327 > ...
+            // XXX: Some rows may have less than 28 seats!!!
+
+            sorted_seats.sort(sortNumber);
+            //console.log(sorted_seats);
+            for (var j = 0; j < sorted_seats.length-N+1; j++) {
+                var seat = sorted_seats[j];
+
+                // Comment if you want to select from non central blocks
+                //if (seat < 300 || seat >= 400) {
+                    //continue;
+                var uuid = seats[seat].uuid;
+                var seat_status = seatAvailability[uuid];
+                //console.log(row, seat, uuid, seat_status);
+                if (seat_status != "free") {
+                    continue;
+                }
+
+                var flag = true;
+                for (var k = 1; k < N; k++) {
+                    var s = sorted_seats[j+k];
+                    var uuid_ = seats[s].uuid;
+                    var seat_status_ = seatAvailability[uuid_];
+                    console.log(row, s, uuid_, seat_status_);
+                    if ((seat_status_ != "free") || (Math.floor(seat/100) != Math.floor(s/100))) {
+                        flag = false;
+                        break;
+                    }
+                }
+                if (flag == true) {
+                    for (var k = 0; k < N; k++) {
+                        var s = sorted_seats[j+k];
+                        var uuid_ = seats[s].uuid;
+                        selected_uuids.push(uuid_);
+                    }
+                    break;
+                }
+            }
+        }
+        console.log("Selected: " + selected_uuids);
+        if (first_time == false) {
+            //reserveSeats(["uuid43073", "uuid43074"]);
+            reserveSeats(selected_uuids);
         }
     });
 }
