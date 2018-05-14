@@ -15,7 +15,7 @@ var seatInfo = {};
 // uuid => Availability
 var seatAvailability = {};
 
-var NumberOfSeats = 2;
+var NumberOfSeats = 3;
 
 function onMessage(data, sender, sendResponse) {
     console.log(data);
@@ -100,7 +100,6 @@ function getSeatInfo() {
             }
             if (!CATEGORY_WHITELIST.has(category)) {
                 continue;
-
             }
             var rowNum = rowToNum(category, row.label);
             if (rowNum < 0) {
@@ -133,25 +132,9 @@ function getSeatInfo() {
     });
 }
 
-function parseSeats() {
-    var row2seats = cat2row2seats['ORCHESTRA'];
-    for (var row in row2seats) {
-        var seats = row2seats[row];
-        for (var i = 0; i < seats.length; i++) {
-            var seat = seats[i];
-            for (var column in seat) {
-                var uuid = seat[column];
-                uuid2row[uuid] = row;
-                uuid2seat[uuid] = column;
-            }
-        }
-    }
-}
-
-//parseSeats();
 //console.log(uuid2row);
 
-window.addEventListener("load", function () {
+function main() {
     var match = null;
 
     var event_re = new RegExp('^/event/[^/]+(/$|$|/listing$)');
@@ -190,13 +173,18 @@ window.addEventListener("load", function () {
                 });
                 window.clearInterval(iframe_interval);
             }
-            // Reload page after 5 seconds
-            else if (iframe_load_count > 5) {
+            // Reload page after 10 seconds
+            else if (iframe_load_count > 10) {
                 reloadPage();
             }
         }, 1000);
     }
-});
+}
+
+// Local debugging
+// main();
+
+window.addEventListener("load", main);
 
 function try_reload_event_page() {
     if (document.querySelector("body").innerHTML.includes("Tickets go on sale soon.") ||
@@ -214,16 +202,25 @@ function try_reload_event_page() {
 }
 
 function click_select_seats() {
+    // Select Seats
     var submit = document.querySelector("#submit_pyos_request_2");
     if (submit != null) {
         console.log("click_select_seats");
         submit.click();
         return true;
-        /*if (document.querySelector("#pyos_request") != null) {*/
-        //document.querySelector("#pyos_request").remove();
-        //}
-        //document.querySelector("#ticket-form").insertAdjacentHTML('beforeend', '<input type="hidden" name="pyos_request" id="pyos_request" value="1" />');
-        /*document.querySelector("#ticket-form").submit();*/
+    }
+    // Get Tickets
+    submit = document.querySelector("#submit_ticket_request");
+    if (submit != null) {
+        var option_id = 1; // 1: best_available; 4: orchestra
+        var cat_option_value = 14022156; // orchestra
+        //$('#js-seated-section > option:nth-child(' + option_id + ')').attr("selected", "selected");
+        //$('#js-seated-section > option[value="' + cat_option_value + '"]').attr("selected", "selected");
+        //$('#js-seated-amount > option[value="' + NumberOfSeats + '"]').attr("selected", "selected");
+        $('#js-seated-section').val(cat_option_value);
+        $('#js-seated-amount').val(NumberOfSeats);
+        submit.click();
+        return true;
     }
     return false;
 }
