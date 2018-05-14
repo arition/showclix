@@ -154,7 +154,7 @@ function parseSeats() {
 window.addEventListener("load", function () {
     var match = null;
 
-    var event_re = new RegExp('^/event/[^/]+($|/listing$)');
+    var event_re = new RegExp('^/event/[^/]+(/$|$|/listing$)');
     match = event_re.exec(window.location.pathname);
     if (match) {
         // We are in event page now
