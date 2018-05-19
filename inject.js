@@ -150,6 +150,12 @@ function main() {
         }, 1000);
     }
 
+    var reservation_re = new RegExp('^/reservation/[^/]+(/$|$)');
+    match = reservation_re.exec(window.location.pathname);
+    if (match) {
+        click_edit_seat_selection();
+    }
+
     var pyos_re = new RegExp('^/event/[^/]+/pyos$');
     match = pyos_re.exec(window.location.pathname);
     if (match) {
@@ -220,6 +226,18 @@ function click_select_seats() {
         $('#js-seated-section').val(cat_option_value);
         $('#js-seated-amount').val(NumberOfSeats);
         submit.click();
+        return true;
+    }
+    return false;
+}
+
+function click_edit_seat_selection() {
+    var link = document.querySelector(".new_seats_seatsio");
+    if (link != null) {
+        var r = window.confirm("Click [Edit seat selection]?");
+        if (r == true) {
+            link.click();
+        }
         return true;
     }
     return false;
