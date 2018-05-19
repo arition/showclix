@@ -218,11 +218,7 @@ function click_select_seats() {
     // Get Tickets
     submit = document.querySelector("#submit_ticket_request");
     if (submit != null) {
-        var option_id = 1; // 1: best_available; 4: orchestra
-        var cat_option_value = 14022156; // orchestra
-        //$('#js-seated-section > option:nth-child(' + option_id + ')').attr("selected", "selected");
-        //$('#js-seated-section > option[value="' + cat_option_value + '"]').attr("selected", "selected");
-        //$('#js-seated-amount > option[value="' + NumberOfSeats + '"]').attr("selected", "selected");
+        var cat_option_value = $('#js-seated-section > option').filter(function () { return $(this).html().includes("ORCHESTRA"); }).val();
         $('#js-seated-section').val(cat_option_value);
         $('#js-seated-amount').val(NumberOfSeats);
         submit.click();
